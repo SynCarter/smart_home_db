@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Home DB Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        tailwind.config = { darkMode: 'class' }
+    </script>
+</head>
+<body class="bg-gray-900 text-gray-100 font-sans p-8">
+
+    <div class="max-w-6xl mx-auto">
+        <header class="mb-8 border-b border-gray-700 pb-4">
+            <h1 class="text-3xl font-bold tracking-tight text-white">Smart Home Telemetry DB</h1>
+            <p class="text-gray-400 mt-1">Real-time WebSocket Stream & Edge Anomaly Detection</p>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            
+            <div class="lg:col-span-1 bg-gray-800 rounded-xl p-5 border border-gray-700 shadow-lg">
+                <h2 class="text-xl font-semibold mb-4 text-blue-400">Database Stream</h2>
+                <div id="log-container" class="space-y-3 h-96 overflow-y-auto pr-2">
+                    <p class="text-gray-500 text-sm">Waiting for WebSocket connection...</p>
+                </div>
+            </div>
+
+            <div class="lg:col-span-2 space-y-6">
+                <div class="bg-gray-800 rounded-xl p-5 border border-gray-700 shadow-lg h-52">
+                    <canvas id="powerChart"></canvas>
+                </div>
+                <div class="bg-gray-800 rounded-xl p-5 border border-gray-700 shadow-lg h-52">
+                    <canvas id="tempChart"></canvas>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        // --- Setup Charts ---
+        const commonOptions = {
+            responsive: true, maintainAspectRatio: false,
+            animation: false, // Turn off for real-time performance
+            scales: { x: { display: false }, y: { grid: { color: '#374151' } } },
+            plugins: { legend: { labels: { color: '#D1D5DB' } } }
+        };
+
+        const powerCtx = document.getElementById('powerChart').getContext('2d');
+        const powerChart = new Chart(powerCtx, {
+            type: 'line',
+            data: { labels: [], datasets: [{ label: 'Power Draw (W)', data: [], borderColor: '#F59E0B', tension: 0.3 }] },
+            options: commonOptions
+        });
+
+        const tempCtx = document.getElementById('tempChart').getContext('2d');
+        const tempChart = new Chart(tempCtx, {
+            type: 'line',
+            data: { labels: [], datasets: [{ label: 'Temperature (°C)', data: [], borderColor: '#3B82F6', tension: 0.3 }] },
+            options: commonOptions
+        });
+
+        // --- WebSocket Connection ---
+        const ws = new WebSocket("ws://localhost:8000/ws");
+        const logContainer = document.getElementById("log-container");
+
+        ws.onmessage = function(event) {
+            const data = JSON.parse(event.data);
+            
+            // 1. Update UI Logs
+            if (logContainer.innerHTML.includes("Waiting")) logContainer.innerHTML = '';
+            
+            const timeStr = new Date(data.timestamp).toLocaleTimeString();
+            const isAlert = data.is_anomaly;
+            
+            const logItem = document.createElement("div");
+            logItem.className = `p-3 rounded-lg text-sm border ${isAlert ? 'bg-red-900/20 border-red-500 text-red-300' : 'bg-gray-700 border-gray-600'}`;
+            logItem.innerHTML = `
+                <div class="flex justify-between mb-1">
+                    <span class="font-bold">Device ${data.device_id}</span>
+                    <span class="text-xs opacity-75">${timeStr}</span>
+                </div>
+                <div>${data.metric.toUpperCase()}: <span class="font-mono">${data.value}</span></div>
+                ${isAlert ? '<div class="text-xs font-bold mt-1 text-red-400">⚠️ ANOMALY DETECTED</div>' : ''}
+            `;
+            
+            logContainer.prepend(logItem);
+            if (logContainer.children.length > 20) logContainer.removeChild(logContainer.lastChild);
+
+            // 2. Update Charts
+            const chart = data.metric === 'power_draw' ? powerChart : tempChart;
+            chart.data.labels.push(timeStr);
+            chart.data.datasets[0].data.push(data.value);
+            
+            if (chart.data.labels.length > 20) {
+                chart.data.labels.shift();
+                chart.data.datasets[0].data.shift();
+            }
+            chart.update();
+        };
+    </script>
+</body>
+</html>
