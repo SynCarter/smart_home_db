@@ -42,9 +42,10 @@ pip install -r requirements.txt
 ```
 
 ## 🚀 Running the System
-To start the FastAPI server with the WebSocket engine enabled:
+To start the FastAPI server with the WebSocket engine enabled, simply run the batch file. This handles the environment and startup automatically:
+
 ```bash
-python run.py
+run_project.bat
 ```
 *The server will initialize the SQLite database automatically and start listening for telemetry on ws://localhost:8000/ws*
 
@@ -53,5 +54,5 @@ python run.py
 * **Proactive Safety:** System flags "Thermal Anomalies" instantly, reducing risk of hardware failure.
 * **Efficiency:** Drastically reduced network overhead compared to traditional polling methods.
 
----
+
 *Developed as part of a product-focused architecture initiative to eliminate real-world engineering friction.*
